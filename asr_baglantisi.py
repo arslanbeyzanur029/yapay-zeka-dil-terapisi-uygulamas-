@@ -1,5 +1,3 @@
-
-
 import torch
 import librosa
 import numpy as np
@@ -44,27 +42,16 @@ def run_asr_and_get_logits(file_path: str, processor, model) -> tuple:
 
         with torch.no_grad():
             output = model(inputs.input_values)
-
-
             logits = output.logits
-
             predicted_ids = torch.argmax(logits, dim=-1)
-
-
             transcription = processor.batch_decode(predicted_ids, skip_special_tokens=True)[0]
-
-
             transcription = transcription.lower()
-
-
             logits_numpy = logits.squeeze(0).cpu().numpy()
-
             return transcription, logits_numpy
 
     except Exception as e:
         print(f"İşleme Hatası: {e}")
         return "HATA OLUŞTU", np.zeros((10, 10))
-
 
 
 def sesi_metne_cevir(dosya_yolu: str) -> tuple:
