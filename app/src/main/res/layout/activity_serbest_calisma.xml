@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="24dp"
+    android:background="#F3E5F5"> <androidx.cardview.widget.CardView
+    android:layout_width="match_parent"
+    android:layout_height="200dp"
+    android:layout_marginTop="40dp"
+    app:cardCornerRadius="20dp"
+    app:cardElevation="8dp"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:gravity="center"
+        android:background="#FFFFFF"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvCumle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Kart yükleniyor..."
+            android:textAlignment="center"
+            android:textColor="#4A148C"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:padding="16dp"/>
+    </LinearLayout>
+</androidx.cardview.widget.CardView>
+
+    <Button
+        android:id="@+id/btnYeniKart"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="🔄  Yeni Kart Çek"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="#7B1FA2"
+        android:textColor="#FFFFFF"/>
+
+    <Space
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" /> <TextView
+        android:id="@+id/tvPuan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Henüz okumadın"
+        android:textSize="18sp"
+        android:textColor="#D81B60"
+        android:layout_marginBottom="20dp"/>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/btnMikrofon"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@android:drawable/ic_btn_speak_now"
+        app:backgroundTint="#9C27B0"
+        app:tint="#FFFFFF"
+        app:fabSize="normal"
+        android:scaleType="center"
+        android:layout_marginBottom="40dp"
+        xmlns:app="http://schemas.android.com/apk/res-auto" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Basılı Tut ve Oku"
+        android:textColor="#7B1FA2"
+        android:layout_marginBottom="20dp"/>
+
+</LinearLayout>
