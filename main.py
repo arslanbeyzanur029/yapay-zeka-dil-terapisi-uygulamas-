@@ -1,6 +1,7 @@
 # main.py
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from sqlalchemy.orm import Session
+from rapidfuzz import fuzz
 from sqlalchemy import func
 import shutil
 import os
@@ -8,7 +9,7 @@ import random
 
 # Kendi modüllerimiz
 import asr_baglantisi
-import telaffuz_analiz_baglantisi
+# import telaffuz_analiz_baglantisi # Artık kendi fonksiyonumuzu kullanacağız
 import modeller
 from veritabani import SessionLocal, engine
 
@@ -21,6 +22,44 @@ os.makedirs("gecici_sesler", exist_ok=True)
 modeller.Base.metadata.create_all(bind=engine)
 
 
+# --- YENİ ADALETLİ PUANLAMA FONKSİYONU ---
+def adaletli_puan_hesapla(hedef_metin, gelen_ses):
+    """
+    Bu fonksiyon, kullanıcının sadece ses benzerliğinden puan almasını engeller.
+    Eğer ortak kelime yoksa puanı tavana (20) kilitler.
+    """
+    # 1. Temizlik (Küçük harfe çevir)
+    hedef = hedef_metin.lower().strip()
+    gelen = gelen_ses.lower().strip()
+
+    # Boş gelirse 0 ver
+    if not gelen or not hedef:
+        return 0
+
+    # 2. Kelimeleri Ayır (Küme oluştur)
+    # Noktalama işaretlerini temizlemek iyi olur ama basit split iş görür
+    hedef_kelimeler = set(hedef.replace(".", "").replace(",", "").split())
+    gelen_kelimeler = set(gelen.replace(".", "").replace(",", "").split())
+
+    # 3. Kesişim Kontrolü (Hiç ortak kelime var mı?)
+    # "&" işareti iki kümenin ortak elemanlarını bulur.
+    ortak_kelime_var_mi = bool(hedef_kelimeler & gelen_kelimeler)
+
+    # Normal Puanı Hesapla (Ses benzerliği - RapidFuzz)
+    ham_puan = fuzz.ratio(hedef, gelen)
+
+    if not ortak_kelime_var_mi:
+        # SENARYO 1: HİÇ ORTAK KELİME YOK (Konu dışı konuşmuş)
+        # Puanı hesapla ama Maksimum 20 ver.
+        # Böylece ses benziyorsa 15-20 alır, benzemiyorsa 5-10 alır.
+        return min(ham_puan, 20)
+
+    else:
+        # SENARYO 2: ORTAK KELİME VAR (Doğru yolda)
+        # Hakkı neyse onu ver.
+        return ham_puan
+
+
 # Veri tabanı bağlantısı
 def veritabanini_getir():
     db = SessionLocal()
@@ -30,7 +69,33 @@ def veritabanini_getir():
         db.close()
 
 
-# --- YENİ: AKILLI KART SİSTEMİ (LEVEL SİSTEMİ) ---
+# --- 1. SERBEST ÇALIŞMA MODU (RASTGELE KART) ---
+@app.get("/rastgele-metin")
+def rastgele_metin_getir(
+        kategori: str = None,  # İsteğe bağlı: Sadece 'Günlük' veya 'Tekerleme' isteyebilir
+        db: Session = Depends(veritabanini_getir)
+):
+    """
+    Seviye kontrolü yapmadan, istenen kategoriden rastgele bir kart getirir.
+    Kullanıcı sadece pratik yapmak istediğinde kullanılır.
+    """
+    sorgu = db.query(modeller.Metin)
+
+    # Eğer kategori belirtildiyse filtrele (Örn: ?kategori=Günlük)
+    if kategori:
+        sorgu = sorgu.filter(modeller.Metin.kategori == kategori)
+
+    metinler = sorgu.all()
+
+    if not metinler:
+        return {"hata": "Bu kategoride hiç kart bulunamadı!"}
+
+    # Rastgele birini seçip döndür
+    secilen = random.choice(metinler)
+    return secilen
+
+
+# --- 2. OYUN MODU (LEVEL SİSTEMİ) ---
 @app.get("/seviyeli-kart-getir")
 def seviyeli_kart_getir(
         kullanici_id: str,
@@ -38,15 +103,12 @@ def seviyeli_kart_getir(
         db: Session = Depends(veritabanini_getir)
 ):
     """
-    Kullanıcının geçmişine bakar. 
+    Kullanıcının geçmişine bakar.
     Eğer Kolay'da 90 üstü yaptıysa Orta'yı açar.
     Orta'da 90 üstü yaptıysa Zor'u açar.
     """
 
-    # Kullanıcının bu kategorideki en yüksek başarısını bulalım
-    # (Karmaşık SQL yerine basit Python mantığıyla yapıyoruz)
-
-    # Kullanıcının tüm skorlarını çek
+    # Kullanıcının geçmiş skorlarını çek
     gecmis = db.query(modeller.Skor).join(modeller.Metin).filter(
         modeller.Skor.kullanici_id == kullanici_id,
         modeller.Metin.kategori == kategori
@@ -58,9 +120,9 @@ def seviyeli_kart_getir(
     for skor in gecmis:
         # Skoru alınan kartı bulalım
         kart = db.query(modeller.Metin).filter(modeller.Metin.id == skor.metin_id).first()
-        if kart.seviye == "Kolay":
+        if kart and kart.seviye == "Kolay":
             max_puan_kolay = max(max_puan_kolay, skor.alinan_puan)
-        elif kart.seviye == "Orta":
+        elif kart and kart.seviye == "Orta":
             max_puan_orta = max(max_puan_orta, skor.alinan_puan)
 
     # SEVİYE BELİRLEME MANTIĞI
@@ -90,10 +152,10 @@ def seviyeli_kart_getir(
     }
 
 
-# --- ANALİZ VE PUANLAMA (ID BAZLI) ---
+# --- 3. ANALİZ VE PUANLAMA (ID BAZLI) ---
 @app.post("/analiz-et")
 async def analiz_yap(
-        metin_id: int = Form(...),  # ARTIK ID İSTİYORUZ
+        metin_id: int = Form(...),  # ID İSTİYORUZ
         kullanici_id: str = Form(...),  # KİM BU PUANI ALDI?
         file: UploadFile = File(...),  # SES DOSYASI
         db: Session = Depends(veritabanini_getir)
@@ -113,13 +175,8 @@ async def analiz_yap(
     # 3. ASR (Sesi Yazıya Dök)
     bulunan_metin, logit_verisi = asr_baglantisi.sesi_metne_cevir(dosya_yolu)
 
-    # 4. Puanlama (Veritabanındaki metne göre)
-    hesaplanan_puan = telaffuz_analiz_baglantisi.telaffuzu_puanla(
-        ses_yolu=dosya_yolu,
-        asr_metni=bulunan_metin,
-        logits=logit_verisi,
-        referans_metin=hedef_metin
-    )
+    # 4. YENİ PUANLAMA (Adaletli Fonksiyon)
+    hesaplanan_puan = adaletli_puan_hesapla(hedef_metin, bulunan_metin)
 
     # 5. SKORU KAYDET (GAMIFICATION)
     yeni_skor = modeller.Skor(
@@ -140,7 +197,7 @@ async def analiz_yap(
     }
 
 
-# --- YARDIMCI: ADMIN İÇİN METİN EKLEME ---
+# --- 4. YARDIMCI: ADMIN İÇİN METİN EKLEME ---
 @app.post("/admin/metin-ekle")
 def metin_ekle(icerik: str, seviye: str, kategori: str, db: Session = Depends(veritabanini_getir)):
     yeni = modeller.Metin(icerik=icerik, seviye=seviye, kategori=kategori)
