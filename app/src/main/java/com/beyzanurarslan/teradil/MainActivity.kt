@@ -1,12 +1,8 @@
 package com.beyzanurarslan.teradil
 
-// 1. SATIRDAKİ PACKAGE KODU ZATEN SENDE VAR, ONA DOKUNMA.
-// BURADAN AŞAĞISINI YAPIŞTIR:
-
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Button
-import android.widget.Toast
+import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
@@ -14,22 +10,23 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Tasarımdaki (XML) butonları bulup isim takıyoruz
-        val btnSerbest = findViewById<Button>(R.id.btnSerbestMod)
-        val btnOyun = findViewById<Button>(R.id.btnOyunModu)
+        // XML'deki bileşenleri buluyoruz.
+        // NOT: <View> kullandım ki XML tarafında Button, CardView veya ImageButton kullanman fark etmesin, hata vermez.
+        val btnSerbest = findViewById<View>(R.id.btnSerbestMod)
+        val btnOyun = findViewById<View>(R.id.btnOyunModu)
 
         // 1. SERBEST ÇALIŞMA BUTONUNA TIKLANINCA
         btnSerbest.setOnClickListener {
-            Toast.makeText(this, "Serbest Mod Açılıyor... 📖", Toast.LENGTH_SHORT).show()
-
-            // Diğer sayfaya geçiş yapıyoruz
+            // Serbest çalışma sayfasına geçiş
             val intent = Intent(this, SerbestCalismaActivity::class.java)
             startActivity(intent)
         }
 
-        // 2. OYUN MODU BUTONUNA TIKLANINCA
+        // 2. OYUN MODU BUTONUNA TIKLANINCA (GÜNCELLENDİ 🚀)
         btnOyun.setOnClickListener {
-            Toast.makeText(this, "Oyun Modu Yakında! 🎮", Toast.LENGTH_SHORT).show()
+            // Artık "Çok Yakında" mesajı yok! Direkt Level Seçimine gidiyoruz.
+            val intent = Intent(this, LevelSecimActivity::class.java)
+            startActivity(intent)
         }
     }
 }
